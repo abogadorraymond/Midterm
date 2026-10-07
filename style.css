@@ -171,9 +171,9 @@ select {
 }
 
 .main-content {
-  max-width: 1600px;
+  max-width: 1200px;
   min-height: 100vh;
-  margin-left: 248px;
+  margin: 0 auto;
   padding: 0 46px 48px;
 }
 
@@ -674,7 +674,6 @@ td {
   }
 
   .main-content {
-    margin-left: 210px;
     padding-right: 28px;
     padding-left: 28px;
   }
@@ -712,16 +711,6 @@ td {
   .page-heading {
     align-items: flex-start;
     padding: 27px 0 20px;
-  }
-
-  .page-heading .primary-button {
-    min-width: 42px;
-    padding: 0 11px;
-    font-size: 0;
-  }
-
-  .page-heading .primary-button span {
-    font-size: 20px;
   }
 
   .stats-grid {

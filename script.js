@@ -162,17 +162,6 @@ function renderRequests() {
   recordCount.textContent = `${filteredRequests.length} ${
     filteredRequests.length === 1 ? "record" : "records"
   }`;
-
-  document.querySelector("#total-count").textContent = requests.length;
-  document.querySelector("#pending-count").textContent = requests.filter(
-    (request) => request.status === "Pending",
-  ).length;
-  document.querySelector("#ready-count").textContent = requests.filter(
-    (request) => request.status === "Ready",
-  ).length;
-  document.querySelector("#collected-count").textContent = requests.filter(
-    (request) => request.status === "Collected",
-  ).length;
 }
 
 function makeRequestId() {
