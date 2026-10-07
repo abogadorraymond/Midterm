@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Record and track student document requests at the Registrar's Office."
+      content="Submit and track student document requests at the Registrar's Office."
     />
     <title>Registrar Desk | Document Requests</title>
     <link rel="stylesheet" href="style.css" />
@@ -25,76 +25,186 @@
 
       <section class="page-heading">
         <div>
-          <h1>Document requests</h1>
+          <h1>Document request tracker</h1>
           <p class="page-description">
-            Record requests, check their status, and find past records.
+            Submit a request or check when your document will be ready.
           </p>
         </div>
         <button class="primary-button" id="new-request-button" type="button">
-          New request
+          Send a request
         </button>
       </section>
 
-      <section class="requests-panel" aria-labelledby="requests-title">
-        <div class="panel-heading">
-          <div>
-            <h2 id="requests-title">All requests</h2>
-            <p>Search for a student or filter requests by status.</p>
-          </div>
-          <span class="record-count" id="record-count">0 records</span>
-        </div>
+      <nav class="view-tabs" aria-label="Request views" role="tablist">
+        <button
+          class="view-tab active"
+          id="student-tab"
+          type="button"
+          role="tab"
+          aria-controls="student-view"
+          aria-selected="true"
+        >
+          Student view
+        </button>
+        <button
+          class="view-tab"
+          id="registrar-tab"
+          type="button"
+          role="tab"
+          aria-controls="registrar-view"
+          aria-selected="false"
+        >
+          Registrar view
+        </button>
+      </nav>
 
-        <div class="toolbar">
-          <label class="search-box">
-            <span aria-hidden="true">⌕</span>
-            <span class="visually-hidden">Search requests</span>
-            <input
-              id="search-input"
-              type="search"
-              placeholder="Search student, ID, or document..."
-              autocomplete="off"
-            />
-            <kbd>/</kbd>
-          </label>
-          <label class="filter-control">
-            <span class="visually-hidden">Filter by status</span>
-            <select id="status-filter">
-              <option value="all">All statuses</option>
-              <option value="Pending">In progress</option>
-              <option value="Ready">Ready for pickup</option>
-              <option value="Collected">Collected</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Request ID</th>
-                <th scope="col">Student</th>
-                <th scope="col">Document</th>
-                <th scope="col">Date requested</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody id="request-rows"></tbody>
-          </table>
-          <div class="empty-state" id="empty-state" hidden>
-            <strong>No requests found</strong>
-            <p>Try another search or add a new document request.</p>
+      <section
+        class="student-view"
+        id="student-view"
+        role="tabpanel"
+        aria-labelledby="student-tab"
+      >
+        <div class="requests-panel">
+          <div class="panel-heading">
+            <div>
+              <h2 id="student-view-title">Check a request</h2>
+              <p>Enter your reference number to see your request status.</p>
+            </div>
           </div>
+          <form class="lookup-form" id="lookup-form">
+            <label class="search-box">
+              <span class="visually-hidden">Reference number</span>
+              <input
+                id="reference-input"
+                type="text"
+                placeholder="e.g. REQ-2026-0001"
+                autocomplete="off"
+                required
+              />
+            </label>
+            <button class="primary-button" type="submit">Check status</button>
+          </form>
+          <p class="form-error lookup-error" id="lookup-error" role="alert" hidden></p>
+          <p class="submission-confirmation" id="submission-confirmation" role="status" hidden>
+            Request submitted. Your reference number is
+            <strong id="submission-reference"></strong>.
+          </p>
+          <section
+            class="lookup-result"
+            id="lookup-result"
+            aria-live="polite"
+            aria-label="Request status"
+            hidden
+          >
+            <div class="result-item">
+              <span>Status</span>
+              <strong id="result-status"></strong>
+            </div>
+            <div class="result-item">
+              <span>Expected release date</span>
+              <strong id="result-release-date"></strong>
+            </div>
+            <div class="result-item">
+              <span>Fee</span>
+              <strong id="result-fee"></strong>
+            </div>
+          </section>
         </div>
-        <p class="storage-note">Requests are saved in this browser on this device.</p>
+      </section>
+
+      <section
+        class="registrar-view"
+        id="registrar-view"
+        role="tabpanel"
+        aria-labelledby="registrar-tab"
+        hidden
+      >
+        <h2 id="registrar-view-title" class="visually-hidden">Registrar view</h2>
+        <section class="summary-section" aria-label="Request summary">
+          <div class="summary-panel">
+            <h3>Requests by status</h3>
+            <ul class="summary-list" id="status-summary"></ul>
+          </div>
+          <div class="summary-panel">
+            <h3>Requests by document</h3>
+            <ul class="summary-list" id="document-summary"></ul>
+          </div>
+        </section>
+
+        <section class="requests-panel" aria-labelledby="requests-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="requests-title">All requests</h2>
+              <p>Search student records and update request statuses.</p>
+            </div>
+            <span class="record-count" id="record-count">0 records</span>
+          </div>
+
+          <div class="toolbar">
+            <label class="search-box">
+              <span aria-hidden="true">⌕</span>
+              <span class="visually-hidden">Search by name, student ID, or reference number</span>
+              <input
+                id="search-input"
+                type="search"
+                placeholder="Search name, student ID, or reference..."
+                autocomplete="off"
+              />
+            </label>
+            <label class="filter-control">
+              <span class="visually-hidden">Filter by status</span>
+              <select id="status-filter">
+                <option value="all">All statuses</option>
+                <option value="Submitted">Submitted</option>
+                <option value="Processing">Processing</option>
+                <option value="Ready for Pickup">Ready for Pickup</option>
+                <option value="Claimed">Claimed</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </label>
+            <label class="filter-control">
+              <span class="visually-hidden">Filter by document type</span>
+              <select id="document-filter">
+                <option value="all">All documents</option>
+                <option>Transcript of Records</option>
+                <option>Certificate of Enrollment</option>
+                <option>Good Moral Certificate</option>
+                <option>Diploma</option>
+                <option>Other document</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Reference number</th>
+                  <th scope="col">Student</th>
+                  <th scope="col">Document</th>
+                  <th scope="col">Fee</th>
+                  <th scope="col">Expected release</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Claim date</th>
+                  <th scope="col">Rejection reason</th>
+                </tr>
+              </thead>
+              <tbody id="request-rows"></tbody>
+            </table>
+            <div class="empty-state" id="empty-state" hidden>
+              <strong>No requests found</strong>
+              <p>Try changing the search or filters.</p>
+            </div>
+          </div>
+          <p class="storage-note">Requests are saved in this browser on this device.</p>
+        </section>
       </section>
     </main>
 
     <dialog class="request-dialog" id="request-dialog" aria-labelledby="dialog-title">
       <form id="request-form">
         <div class="dialog-heading">
-          <div>
-            <h2 id="dialog-title">New document request</h2>
-          </div>
+          <h2 id="dialog-title">Send a document request</h2>
           <button
             class="icon-button"
             id="close-dialog-button"
@@ -136,16 +246,41 @@
             <option>Other document</option>
           </select>
         </label>
-        <label class="form-field">
-          <span>Date requested</span>
-          <input name="dateRequested" type="date" required />
-        </label>
+        <p class="request-details">
+          Fee: <strong>100</strong> · Expected release: <strong>5 weekdays</strong>
+        </p>
         <p class="form-error" id="form-error" role="alert" hidden></p>
         <div class="dialog-actions">
-          <button class="secondary-button" id="cancel-button" type="button">
+          <button class="secondary-button" id="cancel-button" type="button">Cancel</button>
+          <button class="primary-button" type="submit">Submit request</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="request-dialog" id="rejection-dialog" aria-labelledby="rejection-title">
+      <form id="rejection-form">
+        <div class="dialog-heading">
+          <h2 id="rejection-title">Reject request</h2>
+          <button
+            class="icon-button"
+            id="close-rejection-button"
+            type="button"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <p>Enter a reason for rejecting this request.</p>
+        <label class="form-field">
+          <span>Reason for rejection</span>
+          <textarea name="reason" rows="4" required maxlength="500"></textarea>
+        </label>
+        <p class="form-error" id="rejection-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button class="secondary-button" id="cancel-rejection-button" type="button">
             Cancel
           </button>
-          <button class="primary-button" type="submit">Save request</button>
+          <button class="primary-button" type="submit">Reject request</button>
         </div>
       </form>
     </dialog>

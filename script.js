@@ -1,65 +1,164 @@
 const STORAGE_KEY = "registrar-document-requests";
-
-const starterRequests = [
+const REQUEST_FEE = 100;
+const PROCESSING_WEEKDAYS = 5;
+const DOCUMENT_TYPES = [
+  "Transcript of Records",
+  "Certificate of Enrollment",
+  "Good Moral Certificate",
+  "Diploma",
+  "Other document",
+];
+const REQUEST_STATUSES = [
+  "Submitted",
+  "Processing",
+  "Ready for Pickup",
+  "Claimed",
+  "Rejected",
+];
+const STARTER_REQUESTS = [
   {
-    id: "REG-2026-1042",
+    referenceNumber: "REQ-2026-0001",
     studentName: "Mia Santos",
     studentId: "2024-01842",
     document: "Transcript of Records",
     dateRequested: "2026-10-06",
-    status: "Ready",
+    status: "Ready for Pickup",
   },
   {
-    id: "REG-2026-1041",
+    referenceNumber: "REQ-2026-0002",
     studentName: "Noah Garcia",
     studentId: "2023-00617",
     document: "Certificate of Enrollment",
     dateRequested: "2026-10-05",
-    status: "Pending",
+    status: "Processing",
   },
   {
-    id: "REG-2026-1040",
+    referenceNumber: "REQ-2026-0003",
     studentName: "Ava Reyes",
     studentId: "2022-02109",
     document: "Good Moral Certificate",
     dateRequested: "2026-10-04",
-    status: "Collected",
+    status: "Claimed",
+    claimDate: "2026-10-07",
   },
   {
-    id: "REG-2026-1039",
+    referenceNumber: "REQ-2026-0004",
     studentName: "Ethan Cruz",
     studentId: "2025-00356",
     document: "Transcript of Records",
     dateRequested: "2026-10-03",
-    status: "Pending",
+    status: "Submitted",
   },
   {
-    id: "REG-2026-1038",
+    referenceNumber: "REQ-2026-0005",
     studentName: "Sofia Lim",
     studentId: "2023-01428",
     document: "Diploma",
     dateRequested: "2026-10-02",
-    status: "Ready",
+    status: "Rejected",
+    rejectionReason: "Please provide a valid student ID.",
   },
 ];
 
-const rowsElement = document.querySelector("#request-rows");
-const searchInput = document.querySelector("#search-input");
-const statusFilter = document.querySelector("#status-filter");
-const emptyState = document.querySelector("#empty-state");
-const recordCount = document.querySelector("#record-count");
+const studentTab = document.querySelector("#student-tab");
+const registrarTab = document.querySelector("#registrar-tab");
+const studentView = document.querySelector("#student-view");
+const registrarView = document.querySelector("#registrar-view");
 const requestDialog = document.querySelector("#request-dialog");
 const requestForm = document.querySelector("#request-form");
 const formError = document.querySelector("#form-error");
+const lookupForm = document.querySelector("#lookup-form");
+const referenceInput = document.querySelector("#reference-input");
+const lookupError = document.querySelector("#lookup-error");
+const lookupResult = document.querySelector("#lookup-result");
+const rejectionDialog = document.querySelector("#rejection-dialog");
+const rejectionForm = document.querySelector("#rejection-form");
+const rejectionError = document.querySelector("#rejection-error");
+const searchInput = document.querySelector("#search-input");
+const statusFilter = document.querySelector("#status-filter");
+const documentFilter = document.querySelector("#document-filter");
+const rowsElement = document.querySelector("#request-rows");
+const emptyState = document.querySelector("#empty-state");
+const recordCount = document.querySelector("#record-count");
 
 let requests = loadRequests();
+let pendingRejectionReference = null;
+
+function getTodayDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addWeekdays(dateString, weekdayCount) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  let weekdaysAdded = 0;
+
+  while (weekdaysAdded < weekdayCount) {
+    date.setDate(date.getDate() + 1);
+    if (date.getDay() !== 0 && date.getDay() !== 6) {
+      weekdaysAdded += 1;
+    }
+  }
+
+  const releaseYear = date.getFullYear();
+  const releaseMonth = String(date.getMonth() + 1).padStart(2, "0");
+  const releaseDay = String(date.getDate()).padStart(2, "0");
+  return `${releaseYear}-${releaseMonth}-${releaseDay}`;
+}
+
+function formatDate(dateString) {
+  if (!dateString) return "—";
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
+
+function migrateRequest(request, index) {
+  const oldStatuses = {
+    Pending: "Processing",
+    Ready: "Ready for Pickup",
+    Collected: "Claimed",
+  };
+  const status = oldStatuses[request.status] || request.status || "Submitted";
+  if (!REQUEST_STATUSES.includes(status)) {
+    throw new Error(`Request ${request.id || request.referenceNumber} has an unknown status.`);
+  }
+
+  const oldReference = request.referenceNumber || request.id;
+  const referenceMatch = oldReference?.match(/^(?:REG|REQ)-(\d{4})-(\d+)$/);
+  const referenceNumber = referenceMatch
+    ? `REQ-${referenceMatch[1]}-${referenceMatch[2].padStart(4, "0")}`
+    : `REQ-${new Date().getFullYear()}-${String(index + 1).padStart(4, "0")}`;
+  const dateRequested = request.dateRequested || getTodayDate();
+
+  return {
+    referenceNumber,
+    studentName: request.studentName,
+    studentId: request.studentId,
+    document: request.document,
+    dateRequested,
+    fee: REQUEST_FEE,
+    expectedReleaseDate: addWeekdays(dateRequested, PROCESSING_WEEKDAYS),
+    status,
+    claimDate: request.claimDate || "",
+    rejectionReason: request.rejectionReason || "",
+  };
+}
 
 function loadRequests() {
   const savedRequests = localStorage.getItem(STORAGE_KEY);
 
   if (savedRequests === null) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(starterRequests));
-    return [...starterRequests];
+    const starterRecords = STARTER_REQUESTS.map(migrateRequest);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(starterRecords));
+    return starterRecords;
   }
 
   const parsedRequests = JSON.parse(savedRequests);
@@ -67,20 +166,24 @@ function loadRequests() {
     throw new Error("Saved request data must be a list.");
   }
 
-  return parsedRequests;
+  const migratedRequests = parsedRequests.map(migrateRequest);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(migratedRequests));
+  return migratedRequests;
 }
 
 function saveRequests() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
 }
 
-function formatDate(dateString) {
-  const date = new Date(`${dateString}T00:00:00`);
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
+function makeReferenceNumber() {
+  const year = new Date().getFullYear();
+  const highestSequence = requests.reduce((highest, request) => {
+    const match = request.referenceNumber.match(/^REQ-(\d{4})-(\d+)$/);
+    if (!match || Number(match[1]) !== year) return highest;
+    return Math.max(highest, Number(match[2]));
+  }, 0);
+
+  return `REQ-${year}-${String(highestSequence + 1).padStart(4, "0")}`;
 }
 
 function createCell(className, text) {
@@ -90,9 +193,61 @@ function createCell(className, text) {
   return cell;
 }
 
+function allowedNextStatuses(status) {
+  const nextStatuses = {
+    Submitted: ["Processing", "Rejected"],
+    Processing: ["Ready for Pickup", "Rejected"],
+    "Ready for Pickup": ["Claimed"],
+    Claimed: [],
+    Rejected: [],
+  };
+  return nextStatuses[status] || [];
+}
+
+function createStatusSelect(request) {
+  const statusSelect = document.createElement("select");
+  statusSelect.className = `status-select ${request.status
+    .toLocaleLowerCase()
+    .replaceAll(" ", "-")}`;
+  statusSelect.setAttribute("aria-label", `Status for ${request.referenceNumber}`);
+
+  [request.status, ...allowedNextStatuses(request.status)].forEach((status) => {
+    const option = document.createElement("option");
+    option.value = status;
+    option.textContent = status;
+    option.selected = status === request.status;
+    statusSelect.append(option);
+  });
+
+  statusSelect.addEventListener("change", () => {
+    const nextStatus = statusSelect.value;
+    if (!allowedNextStatuses(request.status).includes(nextStatus)) {
+      renderRequests();
+      return;
+    }
+
+    if (nextStatus === "Rejected") {
+      pendingRejectionReference = request.referenceNumber;
+      rejectionForm.reset();
+      rejectionError.hidden = true;
+      rejectionDialog.showModal();
+      return;
+    }
+
+    request.status = nextStatus;
+    if (nextStatus === "Claimed") {
+      request.claimDate = getTodayDate();
+    }
+    saveRequests();
+    renderAll();
+  });
+
+  return statusSelect;
+}
+
 function createRequestRow(request) {
   const row = document.createElement("tr");
-  row.append(createCell("request-id", request.id));
+  row.append(createCell("request-id", request.referenceNumber));
 
   const studentCell = document.createElement("td");
   studentCell.className = "student-cell";
@@ -105,53 +260,34 @@ function createRequestRow(request) {
 
   row.append(
     createCell("", request.document),
-    createCell("", formatDate(request.dateRequested)),
+    createCell("", String(request.fee)),
+    createCell("", formatDate(request.expectedReleaseDate)),
   );
 
   const statusCell = document.createElement("td");
-  const statusSelect = document.createElement("select");
-  statusSelect.className = `status-select ${request.status.toLowerCase()}`;
-  statusSelect.setAttribute("aria-label", `Status for ${request.id}`);
-
-  [
-    ["Pending", "In progress"],
-    ["Ready", "Ready for pickup"],
-    ["Collected", "Collected"],
-  ].forEach(([value, label]) => {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    option.selected = request.status === value;
-    statusSelect.append(option);
-  });
-
-  statusSelect.addEventListener("change", () => {
-    const matchingRequest = requests.find((item) => item.id === request.id);
-    if (!matchingRequest) return;
-    matchingRequest.status = statusSelect.value;
-    saveRequests();
-    renderRequests();
-  });
-
-  statusCell.append(statusSelect);
+  statusCell.append(createStatusSelect(request));
   row.append(statusCell);
+  row.append(createCell("", formatDate(request.claimDate)));
+  row.append(createCell("rejection-reason", request.rejectionReason || "—"));
   return row;
 }
 
 function renderRequests() {
   const searchTerm = searchInput.value.trim().toLocaleLowerCase();
   const selectedStatus = statusFilter.value;
+  const selectedDocument = documentFilter.value;
   const filteredRequests = requests
     .filter((request) => {
       const matchesSearch = [
-        request.id,
+        request.referenceNumber,
         request.studentName,
         request.studentId,
-        request.document,
       ].some((value) => value.toLocaleLowerCase().includes(searchTerm));
       const matchesStatus =
         selectedStatus === "all" || request.status === selectedStatus;
-      return matchesSearch && matchesStatus;
+      const matchesDocument =
+        selectedDocument === "all" || request.document === selectedDocument;
+      return matchesSearch && matchesStatus && matchesDocument;
     })
     .sort((first, second) =>
       second.dateRequested.localeCompare(first.dateRequested),
@@ -164,32 +300,79 @@ function renderRequests() {
   }`;
 }
 
-function makeRequestId() {
-  const year = new Date().getFullYear();
-  const highestSequence = requests.reduce((highest, request) => {
-    const match = request.id.match(/^REG-\d{4}-(\d+)$/);
-    return match ? Math.max(highest, Number(match[1])) : highest;
-  }, 1000);
-  return `REG-${year}-${String(highestSequence + 1).padStart(4, "0")}`;
+function renderSummaryList(element, labels, getValue) {
+  element.replaceChildren(
+    ...labels.map((label) => {
+      const item = document.createElement("li");
+      const name = document.createElement("span");
+      name.textContent = label;
+      const count = document.createElement("strong");
+      count.textContent = String(
+        requests.filter((request) => getValue(request) === label).length,
+      );
+      item.append(name, count);
+      return item;
+    }),
+  );
 }
+
+function renderSummary() {
+  renderSummaryList(
+    document.querySelector("#status-summary"),
+    REQUEST_STATUSES,
+    (request) => request.status,
+  );
+  renderSummaryList(
+    document.querySelector("#document-summary"),
+    DOCUMENT_TYPES,
+    (request) => request.document,
+  );
+}
+
+function renderAll() {
+  renderRequests();
+  renderSummary();
+}
+
+function showView(view) {
+  const isStudentView = view === "student";
+  studentView.hidden = !isStudentView;
+  registrarView.hidden = isStudentView;
+  studentTab.classList.toggle("active", isStudentView);
+  registrarTab.classList.toggle("active", !isStudentView);
+  studentTab.setAttribute("aria-selected", String(isStudentView));
+  registrarTab.setAttribute("aria-selected", String(!isStudentView));
+}
+
+function showLookupResult(request) {
+  document.querySelector("#result-status").textContent = request.status;
+  document.querySelector("#result-release-date").textContent = formatDate(
+    request.expectedReleaseDate,
+  );
+  document.querySelector("#result-fee").textContent = String(request.fee);
+  lookupResult.hidden = false;
+}
+
+studentTab.addEventListener("click", () => showView("student"));
+registrarTab.addEventListener("click", () => {
+  showView("registrar");
+  renderAll();
+});
 
 document.querySelector("#new-request-button").addEventListener("click", () => {
   formError.hidden = true;
   requestForm.reset();
-  requestForm.elements.dateRequested.value = new Date()
-    .toISOString()
-    .slice(0, 10);
   requestDialog.showModal();
 });
 
-function closeDialog() {
+function closeRequestDialog() {
   requestDialog.close();
 }
 
 document
   .querySelector("#close-dialog-button")
-  .addEventListener("click", closeDialog);
-document.querySelector("#cancel-button").addEventListener("click", closeDialog);
+  .addEventListener("click", closeRequestDialog);
+document.querySelector("#cancel-button").addEventListener("click", closeRequestDialog);
 
 requestForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -197,41 +380,109 @@ requestForm.addEventListener("submit", (event) => {
   const studentName = String(formData.get("studentName")).trim();
   const studentId = String(formData.get("studentId")).trim();
   const documentName = String(formData.get("document"));
-  const dateRequested = String(formData.get("dateRequested"));
 
-  if (!studentName || !studentId || !documentName || !dateRequested) {
-    formError.textContent = "Please complete all fields before saving.";
+  if (!studentName || !studentId || !DOCUMENT_TYPES.includes(documentName)) {
+    formError.textContent = "Please complete all fields before submitting.";
     formError.hidden = false;
     return;
   }
 
-  requests.unshift({
-    id: makeRequestId(),
+  const normalizedStudentId = studentId.toLocaleLowerCase();
+  const hasActiveDuplicate = requests.some(
+    (request) =>
+      request.studentId.trim().toLocaleLowerCase() === normalizedStudentId &&
+      request.document === documentName &&
+      ["Submitted", "Processing"].includes(request.status),
+  );
+  if (hasActiveDuplicate) {
+    formError.textContent =
+      "You already have an active request for this document.";
+    formError.hidden = false;
+    return;
+  }
+
+  const dateRequested = getTodayDate();
+  const request = {
+    referenceNumber: makeReferenceNumber(),
     studentName,
     studentId,
     document: documentName,
     dateRequested,
-    status: "Pending",
-  });
+    fee: REQUEST_FEE,
+    expectedReleaseDate: addWeekdays(dateRequested, PROCESSING_WEEKDAYS),
+    status: "Submitted",
+    claimDate: "",
+    rejectionReason: "",
+  };
+
+  requests.unshift(request);
   saveRequests();
-  searchInput.value = "";
-  statusFilter.value = "all";
+  renderAll();
+  document.querySelector("#submission-reference").textContent =
+    request.referenceNumber;
+  document.querySelector("#submission-confirmation").hidden = false;
+  showView("student");
+  closeRequestDialog();
+});
+
+lookupForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const referenceNumber = referenceInput.value.trim().toLocaleUpperCase();
+  const matchingRequest = requests.find(
+    (request) => request.referenceNumber.toLocaleUpperCase() === referenceNumber,
+  );
+
+  if (!matchingRequest) {
+    lookupResult.hidden = true;
+    lookupError.textContent = "No request was found with that reference number.";
+    lookupError.hidden = false;
+    return;
+  }
+
+  lookupError.hidden = true;
+  showLookupResult(matchingRequest);
+});
+
+function closeRejectionDialog() {
+  pendingRejectionReference = null;
+  rejectionDialog.close();
   renderRequests();
-  closeDialog();
+}
+
+document
+  .querySelector("#close-rejection-button")
+  .addEventListener("click", closeRejectionDialog);
+document
+  .querySelector("#cancel-rejection-button")
+  .addEventListener("click", closeRejectionDialog);
+
+rejectionForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const reason = String(new FormData(rejectionForm).get("reason")).trim();
+  if (!reason) {
+    rejectionError.textContent = "Enter a reason before rejecting the request.";
+    rejectionError.hidden = false;
+    return;
+  }
+
+  const request = requests.find(
+    (item) => item.referenceNumber === pendingRejectionReference,
+  );
+  if (!request || !allowedNextStatuses(request.status).includes("Rejected")) {
+    closeRejectionDialog();
+    return;
+  }
+
+  request.status = "Rejected";
+  request.rejectionReason = reason;
+  saveRequests();
+  pendingRejectionReference = null;
+  rejectionDialog.close();
+  renderAll();
 });
 
 searchInput.addEventListener("input", renderRequests);
 statusFilter.addEventListener("change", renderRequests);
+documentFilter.addEventListener("change", renderRequests);
 
-document.addEventListener("keydown", (event) => {
-  if (
-    event.key === "/" &&
-    !requestDialog.open &&
-    !["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)
-  ) {
-    event.preventDefault();
-    searchInput.focus();
-  }
-});
-
-renderRequests();
+renderAll();
