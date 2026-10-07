@@ -74,6 +74,7 @@
           <form class="lookup-form" id="lookup-form" novalidate>
             <label class="search-box">
               <span class="visually-hidden">Reference number</span>
+              <span class="reference-prefix" aria-hidden="true">REQ</span>
               <input
                 id="reference-input"
                 type="text"
@@ -112,6 +113,14 @@
             </div>
           </section>
         </div>
+        <section class="student-help" aria-label="How request tracking works">
+          <h2>How it works</h2>
+          <ol class="help-steps">
+            <li><span>1</span><div><strong>Send your request</strong><p>Enter your student details and choose a document.</p></div></li>
+            <li><span>2</span><div><strong>Save your reference number</strong><p>Use it any time to check your request status.</p></div></li>
+            <li><span>3</span><div><strong>Pick it up when ready</strong><p>Requests cost 100 and take 5 weekdays to prepare.</p></div></li>
+          </ol>
+        </section>
       </section>
 
       <section
@@ -143,19 +152,21 @@
           </div>
 
           <div class="toolbar">
-            <label class="search-box">
-              <span aria-hidden="true">⌕</span>
-              <span class="visually-hidden">Search by name, student ID, or reference number</span>
-              <input
-                id="search-input"
-                type="search"
-                placeholder="Search name, student ID, or reference..."
-                autocomplete="off"
-                maxlength="100"
-              />
+            <label class="toolbar-field search-field">
+              <span class="control-label">Search requests</span>
+              <span class="search-box">
+                <span aria-hidden="true">⌕</span>
+                <input
+                  id="search-input"
+                  type="search"
+                  placeholder="Name, student ID, or reference number"
+                  autocomplete="off"
+                  maxlength="100"
+                />
+              </span>
             </label>
-            <label class="filter-control">
-              <span class="visually-hidden">Filter by status</span>
+            <label class="toolbar-field">
+              <span class="control-label">Status</span>
               <select id="status-filter">
                 <option value="all">All statuses</option>
                 <option value="Submitted">Submitted</option>
@@ -165,8 +176,8 @@
                 <option value="Rejected">Rejected</option>
               </select>
             </label>
-            <label class="filter-control">
-              <span class="visually-hidden">Filter by document type</span>
+            <label class="toolbar-field">
+              <span class="control-label">Document type</span>
               <select id="document-filter">
                 <option value="all">All documents</option>
                 <option>Transcript of Records</option>
