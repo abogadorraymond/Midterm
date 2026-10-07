@@ -15,6 +15,30 @@ const REQUEST_STATUSES = [
   "Claimed",
   "Rejected",
 ];
+const LEGACY_STATUSES = {
+  Pending: "Processing",
+  Ready: "Ready for Pickup",
+  Collected: "Claimed",
+};
+const STATUS_TRANSITIONS = {
+  Submitted: ["Processing", "Rejected"],
+  Processing: ["Ready for Pickup", "Rejected"],
+  "Ready for Pickup": ["Claimed"],
+  Claimed: [],
+  Rejected: [],
+};
+const SUMMARY_GROUPS = [
+  {
+    selector: "#status-summary",
+    labels: REQUEST_STATUSES,
+    getValue: (request) => request.status,
+  },
+  {
+    selector: "#document-summary",
+    labels: DOCUMENT_TYPES,
+    getValue: (request) => request.document,
+  },
+];
 const STARTER_REQUESTS = [
   {
     referenceNumber: "REQ-2026-0001",
@@ -80,21 +104,32 @@ const documentFilter = document.querySelector("#document-filter");
 const rowsElement = document.querySelector("#request-rows");
 const emptyState = document.querySelector("#empty-state");
 const recordCount = document.querySelector("#record-count");
+const summaryElements = SUMMARY_GROUPS.map((group) => ({
+  ...group,
+  element: document.querySelector(group.selector),
+}));
 
 let requests = loadRequests();
 let pendingRejectionReference = null;
 
 function getTodayDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
+  return toDateString(new Date());
+}
+
+function toDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
-function addWeekdays(dateString, weekdayCount) {
+function parseDate(dateString) {
   const [year, month, day] = dateString.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
+  return new Date(year, month - 1, day);
+}
+
+function addWeekdays(dateString, weekdayCount) {
+  const date = parseDate(dateString);
   let weekdaysAdded = 0;
 
   while (weekdaysAdded < weekdayCount) {
@@ -104,29 +139,21 @@ function addWeekdays(dateString, weekdayCount) {
     }
   }
 
-  const releaseYear = date.getFullYear();
-  const releaseMonth = String(date.getMonth() + 1).padStart(2, "0");
-  const releaseDay = String(date.getDate()).padStart(2, "0");
-  return `${releaseYear}-${releaseMonth}-${releaseDay}`;
+  return toDateString(date);
 }
 
 function formatDate(dateString) {
   if (!dateString) return "—";
-  const [year, month, day] = dateString.split("-").map(Number);
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
     year: "numeric",
-  }).format(new Date(year, month - 1, day));
+  }).format(parseDate(dateString));
 }
 
 function migrateRequest(request, index) {
-  const oldStatuses = {
-    Pending: "Processing",
-    Ready: "Ready for Pickup",
-    Collected: "Claimed",
-  };
-  const status = oldStatuses[request.status] || request.status || "Submitted";
+  const status =
+    LEGACY_STATUSES[request.status] || request.status || "Submitted";
   if (!REQUEST_STATUSES.includes(status)) {
     throw new Error(`Request ${request.id || request.referenceNumber} has an unknown status.`);
   }
@@ -194,14 +221,7 @@ function createCell(className, text) {
 }
 
 function allowedNextStatuses(status) {
-  const nextStatuses = {
-    Submitted: ["Processing", "Rejected"],
-    Processing: ["Ready for Pickup", "Rejected"],
-    "Ready for Pickup": ["Claimed"],
-    Claimed: [],
-    Rejected: [],
-  };
-  return nextStatuses[status] || [];
+  return STATUS_TRANSITIONS[status] || [];
 }
 
 function createStatusSelect(request) {
@@ -317,16 +337,9 @@ function renderSummaryList(element, labels, getValue) {
 }
 
 function renderSummary() {
-  renderSummaryList(
-    document.querySelector("#status-summary"),
-    REQUEST_STATUSES,
-    (request) => request.status,
-  );
-  renderSummaryList(
-    document.querySelector("#document-summary"),
-    DOCUMENT_TYPES,
-    (request) => request.document,
-  );
+  summaryElements.forEach(({ element, labels, getValue }) => {
+    renderSummaryList(element, labels, getValue);
+  });
 }
 
 function renderAll() {
@@ -482,8 +495,10 @@ lookupForm.addEventListener("submit", (event) => {
 
   if (!matchingRequest) {
     lookupResult.hidden = true;
-    lookupError.textContent = "No request was found with that reference number.";
-    lookupError.hidden = false;
+    showFormError(
+      lookupError,
+      "No request was found with that reference number.",
+    );
     return;
   }
 
@@ -544,15 +559,15 @@ searchInput.addEventListener("input", renderRequests);
 statusFilter.addEventListener("change", renderRequests);
 documentFilter.addEventListener("change", renderRequests);
 
-requestForm.addEventListener("input", () => {
-  formError.hidden = true;
-});
-lookupForm.addEventListener("input", () => {
-  lookupError.hidden = true;
-  lookupResult.hidden = true;
-});
-rejectionForm.addEventListener("input", () => {
-  rejectionError.hidden = true;
+[
+  [requestForm, formError],
+  [lookupForm, lookupError],
+  [rejectionForm, rejectionError],
+].forEach(([form, errorElement]) => {
+  form.addEventListener("input", () => {
+    errorElement.hidden = true;
+    if (form === lookupForm) lookupResult.hidden = true;
+  });
 });
 
 renderAll();
