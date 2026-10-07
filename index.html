@@ -71,7 +71,7 @@
               <p>Enter your reference number to see your request status.</p>
             </div>
           </div>
-          <form class="lookup-form" id="lookup-form">
+          <form class="lookup-form" id="lookup-form" novalidate>
             <label class="search-box">
               <span class="visually-hidden">Reference number</span>
               <input
@@ -80,6 +80,8 @@
                 placeholder="e.g. REQ-2026-0001"
                 autocomplete="off"
                 required
+                maxlength="30"
+                title="Enter a reference number like REQ-2026-0001."
               />
             </label>
             <button class="primary-button" type="submit">Check status</button>
@@ -149,6 +151,7 @@
                 type="search"
                 placeholder="Search name, student ID, or reference..."
                 autocomplete="off"
+                maxlength="100"
               />
             </label>
             <label class="filter-control">
@@ -202,7 +205,7 @@
     </main>
 
     <dialog class="request-dialog" id="request-dialog" aria-labelledby="dialog-title">
-      <form id="request-form">
+      <form id="request-form" novalidate>
         <div class="dialog-heading">
           <h2 id="dialog-title">Send a document request</h2>
           <button
@@ -222,6 +225,7 @@
             type="text"
             placeholder="e.g. Alex Rivera"
             required
+            minlength="2"
             maxlength="100"
           />
         </label>
@@ -232,7 +236,9 @@
             type="text"
             placeholder="e.g. 2024-01234"
             required
+            minlength="2"
             maxlength="30"
+            title="Use 2–30 letters, numbers, or hyphens."
           />
         </label>
         <label class="form-field">
@@ -258,7 +264,7 @@
     </dialog>
 
     <dialog class="request-dialog" id="rejection-dialog" aria-labelledby="rejection-title">
-      <form id="rejection-form">
+      <form id="rejection-form" novalidate>
         <div class="dialog-heading">
           <h2 id="rejection-title">Reject request</h2>
           <button

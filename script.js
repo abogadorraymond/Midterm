@@ -353,6 +353,12 @@ function showLookupResult(request) {
   lookupResult.hidden = false;
 }
 
+function showFormError(errorElement, message, input) {
+  errorElement.textContent = message;
+  errorElement.hidden = false;
+  input?.focus();
+}
+
 studentTab.addEventListener("click", () => showView("student"));
 registrarTab.addEventListener("click", () => {
   showView("registrar");
@@ -377,13 +383,40 @@ document.querySelector("#cancel-button").addEventListener("click", closeRequestD
 requestForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(requestForm);
-  const studentName = String(formData.get("studentName")).trim();
+  const studentName = String(formData.get("studentName"))
+    .trim()
+    .replace(/\s+/g, " ");
   const studentId = String(formData.get("studentId")).trim();
   const documentName = String(formData.get("document"));
+  const studentNameInput = requestForm.elements.namedItem("studentName");
+  const studentIdInput = requestForm.elements.namedItem("studentId");
+  const documentInput = requestForm.elements.namedItem("document");
 
-  if (!studentName || !studentId || !DOCUMENT_TYPES.includes(documentName)) {
-    formError.textContent = "Please complete all fields before submitting.";
-    formError.hidden = false;
+  if (
+    studentName.length < 2 ||
+    studentName.length > 100 ||
+    !/\p{L}/u.test(studentName) ||
+    /[^\p{L}\p{M}\s.'’-]/u.test(studentName)
+  ) {
+    showFormError(
+      formError,
+      "Enter a valid name using letters, spaces, apostrophes, periods, or hyphens.",
+      studentNameInput,
+    );
+    return;
+  }
+
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]{1,29}$/.test(studentId)) {
+    showFormError(
+      formError,
+      "Enter a student ID with 2–30 letters, numbers, or hyphens.",
+      studentIdInput,
+    );
+    return;
+  }
+
+  if (!DOCUMENT_TYPES.includes(documentName)) {
+    showFormError(formError, "Select a document type.", documentInput);
     return;
   }
 
@@ -395,9 +428,11 @@ requestForm.addEventListener("submit", (event) => {
       ["Submitted", "Processing"].includes(request.status),
   );
   if (hasActiveDuplicate) {
-    formError.textContent =
-      "You already have an active request for this document.";
-    formError.hidden = false;
+    showFormError(
+      formError,
+      "You already have an active request for this document.",
+      studentIdInput,
+    );
     return;
   }
 
@@ -428,6 +463,19 @@ requestForm.addEventListener("submit", (event) => {
 lookupForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const referenceNumber = referenceInput.value.trim().toLocaleUpperCase();
+  if (
+    referenceNumber.length > 30 ||
+    !/^REQ-\d{4}-\d{4,}$/.test(referenceNumber)
+  ) {
+    lookupResult.hidden = true;
+    showFormError(
+      lookupError,
+      "Enter a reference number like REQ-2026-0001.",
+      referenceInput,
+    );
+    return;
+  }
+
   const matchingRequest = requests.find(
     (request) => request.referenceNumber.toLocaleUpperCase() === referenceNumber,
   );
@@ -460,8 +508,19 @@ rejectionForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const reason = String(new FormData(rejectionForm).get("reason")).trim();
   if (!reason) {
-    rejectionError.textContent = "Enter a reason before rejecting the request.";
-    rejectionError.hidden = false;
+    showFormError(
+      rejectionError,
+      "Enter a reason before rejecting the request.",
+      rejectionForm.elements.namedItem("reason"),
+    );
+    return;
+  }
+  if (reason.length > 500) {
+    showFormError(
+      rejectionError,
+      "Keep the rejection reason to 500 characters or fewer.",
+      rejectionForm.elements.namedItem("reason"),
+    );
     return;
   }
 
@@ -484,5 +543,16 @@ rejectionForm.addEventListener("submit", (event) => {
 searchInput.addEventListener("input", renderRequests);
 statusFilter.addEventListener("change", renderRequests);
 documentFilter.addEventListener("change", renderRequests);
+
+requestForm.addEventListener("input", () => {
+  formError.hidden = true;
+});
+lookupForm.addEventListener("input", () => {
+  lookupError.hidden = true;
+  lookupResult.hidden = true;
+});
+rejectionForm.addEventListener("input", () => {
+  rejectionError.hidden = true;
+});
 
 renderAll();
